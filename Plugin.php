@@ -42,12 +42,44 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
    *
    * @param \Composer\EventDispatcher\Event $event
    */
-  public static function updateManifest(BaseEvent $event) {
+  public function updateManifest(BaseEvent $event) {
     $repositoryManager = $event->getComposer()->getRepositoryManager();
     $localRepository = $repositoryManager->getLocalRepository();
-    $localRepository->reload();
     $packages = $localRepository->getPackages();
+    static::writeManifest($packages);
+    $event->getIO()->write('<info>Composer manifest updated!</info>');
+  }
 
+  /**
+   * Rewrites the manifest YAML file from the lock.
+   */
+  public static function updateManifestFromLock(BaseEvent $event) {
+    $lockedRepository = $event->getComposer()->getLocker()->getLockedRepository();
+    $packages = $lockedRepository->getPackages();
+    static::writeManifest($packages);
+    $event->getIO()->write('<info>Composer manifest updated!</info>');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deactivate(Composer $composer, IOInterface $io) {
+    // Do nothing.
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function uninstall(Composer $composer, IOInterface $io) {
+    if (file_exists('composer-manifest.yaml')) {
+      unlink('composer-manifest.yaml');
+    }
+  }
+
+  /**
+   * Writes packages to manifest YAML file.
+   */
+  protected static function writeManifest(array $packages) {
     // TODO: do we want to include the lock hash? Not sure it's useful, and it's
     // a PITA in merge conflicts.
     // $lock = $this->composer->getLocker()->getLockData();
@@ -74,22 +106,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
 
     $yaml = Yaml::dump($yaml_data);
     file_put_contents('composer-manifest.yaml', $yaml);
-    $event->getIO()->write('<info>Composer manifest updated!</info>');
   }
 
-  /**
-   * {@inheritdoc}
-   */
-  public function deactivate(Composer $composer, IOInterface $io) {
-    // Do nothing.
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function uninstall(Composer $composer, IOInterface $io) {
-    if (file_exists('composer-manifest.yaml')) {
-      unlink('composer-manifest.yaml');
-    }
-  }
 }
