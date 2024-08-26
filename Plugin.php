@@ -60,19 +60,18 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
    *
    * @param \Composer\EventDispatcher\Event $event
    */
-  public static function updateManifestFromLock(BaseEvent $event) {
+  public static function updateManifestRenovate(BaseEvent $event) {
     $io = $event->getIO();
     $composer = $event->getComposer();
 
-    // Read actual file contents to get the most recent changes.
-    $composerFile = Factory::getComposerFile();
-    $composerFileContents = file_get_contents(Factory::getComposerFile());
-    $lockFile = new JsonFile(Factory::getLockFile($composerFile));
-    $locker = new Locker($io, $lockFile, $composer->getInstallationManager(), $composerFileContents);
-
-    // Write composer manifest with updated packages information.
-    static::writeManifest($locker->getLockedRepository()->getPackages() ?? []);
-    $io->write('<info>Composer manifest updated!</info>');
+    // Read renovate lock file contents to get the most recent changes.
+    $lockFile = new JsonFile('./tmp/renovate/composer.lock');
+    if ($lockFile->exists()) {
+      $composerFile = Factory::getComposerFile();
+      $composerFileContents = file_get_contents(Factory::getComposerFile());
+      $locker = new Locker($io, $lockFile, $composer->getInstallationManager(), $composerFileContents);
+      static::writeManifest($locker->getLockedRepository()->getPackages() ?? []);
+    }
   }
 
   /**
