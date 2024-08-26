@@ -4,11 +4,16 @@ namespace ComposerManifest;
 
 use Composer\Composer;
 use Composer\EventDispatcher\EventSubscriberInterface;
+use Composer\Factory;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
+use Composer\Json\JsonFile;
+use Composer\Package\Locker;
 use Composer\Plugin\PluginInterface;
+use Composer\Repository\RepositorySet;
 use Composer\Script\ScriptEvents;
 use Composer\EventDispatcher\Event as BaseEvent;
+use Http\Discovery\ClassDiscovery;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -52,12 +57,22 @@ class Plugin implements PluginInterface, EventSubscriberInterface {
 
   /**
    * Rewrites the manifest YAML file from the lock.
+   *
+   * @param \Composer\EventDispatcher\Event $event
    */
   public static function updateManifestFromLock(BaseEvent $event) {
-    $lockedRepository = $event->getComposer()->getLocker()->getLockedRepository();
-    $packages = $lockedRepository->getPackages();
-    static::writeManifest($packages);
-    $event->getIO()->write('<info>Composer manifest updated!</info>');
+    $io = $event->getIO();
+    $composer = $event->getComposer();
+
+    // Read actual file contents to get the most recent changes.
+    $composerFile = Factory::getComposerFile();
+    $composerFileContents = file_get_contents(Factory::getComposerFile());
+    $lockFile = new JsonFile(Factory::getLockFile($composerFile));
+    $locker = new Locker($io, $lockFile, $composer->getInstallationManager(), $composerFileContents);
+
+    // Write composer manifest with updated packages information.
+    static::writeManifest($locker->getLockedRepository()->getPackages() ?? []);
+    $io->write('<info>Composer manifest updated!</info>');
   }
 
   /**
